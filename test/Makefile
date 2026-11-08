@@ -6,7 +6,7 @@ SIM ?= icarus
 FST ?= -fst # Use more efficient FST format
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
-PROJECT_SOURCES = project.v
+PROJECT_SOURCES = project.sv  # Generated from project.tlv (make verilog) and committed.
 
 ifneq ($(GATES),yes)
 
@@ -41,5 +41,15 @@ TOPLEVEL = tb
 # List test modules to run, separated by commas and without the .py suffix:
 COCOTB_TEST_MODULES = test
 
-# include cocotb's make rules to take care of the simulator setup
+# include cocotb's make rules to take care of the simulator setup (not needed to just build Verilog)
+ifneq ($(MAKECMDGOALS),verilog)
 include $(shell cocotb-config --makefiles)/Makefile.sim
+endif
+
+# TL-Verilog: generate src/*.sv from src/*.tlv with SandPiper-SaaS. Commit the result.
+$(SRC_DIR)/%.sv: $(SRC_DIR)/%.tlv
+	@command -v sandpiper-saas > /dev/null || (echo "Install SandPiper-SaaS: pipx install sandpiper-saas" && exit 1)
+	cd $(SRC_DIR) && sandpiper-saas -i '$(<F)' -o '$(@F)' --outdir . --sv_url_inc --inlineGen --noline --clkAlways --bestsv --iArgs
+
+.PHONY: verilog
+verilog: $(addprefix $(SRC_DIR)/,$(PROJECT_SOURCES))

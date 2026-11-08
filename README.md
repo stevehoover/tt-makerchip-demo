@@ -1,8 +1,12 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# Tiny Tapeout Verilog Project Template
+# Tiny Tapeout TL-Verilog (Makerchip) Project Template
 
 - [Read the documentation for project](docs/info.md)
+
+This is the [Tiny Tapeout Verilog template](https://github.com/TinyTapeout/ttsky-verilog-template)
+adapted for [TL-Verilog](https://tl-x.org) and [Makerchip](https://makerchip.com). It is maintained
+by its author, not by Tiny Tapeout.
 
 ## What is Tiny Tapeout?
 
@@ -10,12 +14,18 @@ Tiny Tapeout is an educational project that aims to make it easier and cheaper t
 
 To learn more and get started, visit https://tinytapeout.com.
 
-## Set up your Verilog project
+## Set up your TL-Verilog project
 
-1. Add your Verilog files to the `src` folder.
-2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
+1. Design in [src/project.tlv](src/project.tlv) (TL-Verilog, Verilog, or both), in VS Code with the
+   [Makerchip extension](https://marketplace.visualstudio.com/items?itemName=RedwoodEDA.makerchip)
+   (recommended for this workspace). Compiling it in Makerchip simulates it with the Tiny Tapeout
+   demo board in the VIZ view.
+2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `top_module` property. It must match `my_design` in `src/project.tlv` and the module instantiated in `test/tb.v`. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
 3. Edit [docs/info.md](docs/info.md) and add a description of your project.
 4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
+5. Before each push, regenerate and commit `src/project.sv`, the Verilog that the Tiny Tapeout flow
+   builds: `cd test && make verilog` (needs [SandPiper-SaaS](https://pypi.org/project/sandpiper-saas/):
+   `pipx install sandpiper-saas`).
 
 The GitHub action will automatically build the ASIC files using [LibreLane](https://www.zerotoasiccourse.com/terminology/librelane/).
 
