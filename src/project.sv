@@ -43,6 +43,7 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
    assign failed = 1'b0;
 endmodule
 
+
 // Provide a wrapper module to debounce input signals if requested.
 // TODO: The debounce module is conditioned for TT03.
 
@@ -127,7 +128,7 @@ logic COUNT_reset_a1;
 
 // ---------- Generated Code Ends ----------
 //_\TLV
-   //_\source project.tlv 32   // Instantiated from project.tlv, 126 as: m5+my_design.
+   //_\source project.tlv 32   // Instantiated from project.tlv, 127 as: m5+my_design.
    
       // ============================================
       // If you are using TL-Verilog for your design,

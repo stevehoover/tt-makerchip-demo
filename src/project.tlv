@@ -97,6 +97,7 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
    assign failed = 1'b0;
 endmodule
 
+
 // Provide a wrapper module to debounce input signals if requested.
 // TODO: The debounce module is conditioned for TT03.
 m5_if(m5_debounce_inputs, ['m5_tt_top(m5_my_design)'])
