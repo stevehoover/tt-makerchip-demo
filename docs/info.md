@@ -9,11 +9,11 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-PLACEHOLDER: Explain how your project works
+A free-running 8-bit counter, written in TL-Verilog, drives `uo_out`. Reset clears it.
 
 ## How to test
 
-PLACEHOLDER: Explain how to use your project
+Apply a clock and release reset; `uo_out` counts up by one each cycle.
 
 ## External hardware
 

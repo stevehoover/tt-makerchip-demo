@@ -10,7 +10,7 @@
    use(m5-1.0)  // See M5 docs in Makerchip IDE Learn menu.
 
    // ---SETTINGS---
-   var(my_design, tt_um_example)  /// Change tt_um_example to tt_um_<your-github-username>_<name-of-your-project>. (See README.md.)
+   var(my_design, tt_um_stevehoover_mc_demo1)  /// Change tt_um_example to tt_um_<your-github-username>_<name-of-your-project>. (See README.md.)
    var(target, ASIC) /// Use "FPGA" for TT03 Demo Boards (without bidirectional I/Os).
    var(in_fpga, 1)   /// 1 to include the demo board visualization. (Note: Logic will be under /fpga_pins/fpga.)
    var(debounce_inputs, 0)
@@ -39,7 +39,12 @@
    // (Connect Tiny Tapeout outputs at the end of this template.)
    // ============================================
 
-   // ...
+   // A free-running 8-bit counter, shown on the outputs.
+   |count
+      @1
+         $reset = *reset;
+         $count[7:0] = $reset ? 8'b0 : >>1$count + 8'b1;
+         *uo_out = $count;
 
 
 // Set up the Tiny Tapeout lab environment.
@@ -133,7 +138,6 @@ module m5_user_module_name (
    // Connect Tiny Tapeout outputs.
    // Note that my_design will be under /fpga_pins/fpga if m5_in_fpga.
    // Example *uo_out = /fpga_pins/fpga|my_pipe>>3$uo_out;
-   assign *uo_out = 8'b0;  // Avoid unused inputs.
    assign *uio_out = 8'b0;
    assign *uio_oe = 8'b0;
 

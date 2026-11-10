@@ -32,8 +32,10 @@ async def test_project(dut):
     # Wait for one clock cycle to see the output values
     await ClockCycles(dut.clk, 1)
 
-    # The template drives all outputs to 0. Change this to match the expected output of your module:
-    assert dut.uo_out.value == 0
+    # The counter advances once per cycle (mod 256).
+    start = int(dut.uo_out.value)
+    await ClockCycles(dut.clk, 10)
+    assert int(dut.uo_out.value) == (start + 10) % 256
     assert dut.uio_oe.value == 0
 
     # Keep testing the module by changing the input values, waiting for

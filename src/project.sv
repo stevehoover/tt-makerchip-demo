@@ -3,7 +3,7 @@
 //_\SV
    // Include Tiny Tapeout Lab.
    // Included URL: "https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/62d6e18bc3d0ca8af451ccaff6d63974a69e645b/tlv_lib/tiny_tapeout_lib.tlv"// Included URL: "https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/b31497efd986ebf6cab7da96d34b2b923a475950/tlv_lib/fpga_includes.tlv"
-//_\source project.tlv 55
+//_\source project.tlv 60
 //_\SV
 
 
@@ -37,7 +37,7 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
    */
 
    // Instantiate the Tiny Tapeout module.
-   tt_um_example tt(.*);
+   tt_um_stevehoover_mc_demo1 tt(.*);
 
    assign passed = cyc_cnt > 100;
    assign failed = 1'b0;
@@ -52,7 +52,7 @@ endmodule
 
 
 // The Tiny Tapeout module.
-module tt_um_example (
+module tt_um_stevehoover_mc_demo1 (
     input  wire [7:0] ui_in,    // Dedicated inputs - connected to the input switches
     output wire [7:0] uo_out,   // Dedicated outputs - connected to the 7 segment display
     input  wire [7:0] uio_in,   // IOs: Bidirectional Input path
@@ -80,9 +80,54 @@ module tt_um_example (
 
 
 
+//
+// Scope: |count
+//
+
+// For |count$count.
+logic [7:0] COUNT_count_a1,
+            COUNT_count_a2;
+
+// For |count$reset.
+logic COUNT_reset_a1;
+
+
+
+   //
+   // Scope: |count
+   //
+
+      // Staging of $count.
+      always_ff @(posedge clk) COUNT_count_a2[7:0] <= COUNT_count_a1[7:0];
+
+
+
+
+
+
+//
+// Debug Signals
+//
+
+   if (1) begin : DEBUG_SIGS_GTKWAVE
+
+
+      //
+      // Scope: |count
+      //
+      if (1) begin : P_count
+         (* keep *) logic [7:0] \@1$count ;
+         assign \@1$count = COUNT_count_a1;
+         (* keep *) logic  \@1$reset ;
+         assign \@1$reset = COUNT_reset_a1;
+      end
+
+
+   end
+
 // ---------- Generated Code Ends ----------
 //_\TLV
-   //_\source project.tlv 32   // Instantiated from project.tlv, 121 as: m5+my_design.
+   //_\source project.tlv 32   // Instantiated from project.tlv, 126 as: m5+my_design.
    
       // ============================================
       // If you are using TL-Verilog for your design,
@@ -92,7 +137,12 @@ module tt_um_example (
       // (Connect Tiny Tapeout outputs at the end of this template.)
       // ============================================
    
-      // ...
+      // A free-running 8-bit counter, shown on the outputs.
+      //_|count
+         //_@1
+            assign COUNT_reset_a1 = reset;
+            assign COUNT_count_a1[7:0] = COUNT_reset_a1 ? 8'b0 : COUNT_count_a2 + 8'b1;
+            assign uo_out = COUNT_count_a1;
    //_\end_source
 
 /*SV_plus*/
@@ -108,7 +158,6 @@ module tt_um_example (
    // Connect Tiny Tapeout outputs.
    // Note that my_design will be under /fpga_pins/fpga if 0.
    // Example *uo_out = /fpga_pins/fpga|my_pipe>>3$uo_out;
-   assign uo_out = 8'b0;  // Avoid unused inputs.
    assign uio_out = 8'b0;
    assign uio_oe = 8'b0;
 
