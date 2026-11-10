@@ -7,17 +7,18 @@ flow runs on GitHub Actions.
 ## 1. Set up by hand
 
 1. Create your repo from this template (it must be public): "Use this template" on GitHub, or
-   `gh repo create <name> --template stevehoover/ttsky-makerchip-template --public --clone`. Clone it.
+   `gh repo create <name> --template stevehoover/tt-makerchip-template --public --clone`. Clone it.
 2. [Enable GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part) with
    GitHub Actions as its source, for the layout viewer.
 3. Fill in your project's information, which the template leaves blank for you. Until it is filled, the `gds`
    and `docs` runs fail Tiny Tapeout's checks.
    - [info.yaml](info.yaml): `title`, `author`, `description`, `pinout`, and `top_module`, which must match
-     `my_design` in `src/project.tlv` and the module instantiated in `test/tb.v`.
+     `my_design` in `src/project.tlv` and the module instantiated in `test/tb.v`. Also set `pdk` to your
+     shuttle's process (it defaults to `sky130A`).
    - [docs/info.md](docs/info.md): the "How it works" and "How to test" sections.
 
-With the extension, then run "Makerchip: Add Tiny Tapeout Button" from the command palette with `src/project.tlv`
-open, and continue with the README.
+With the extension, then open `src/project.tlv` in VS Code (its title bar has the "Run TT Flow" button) and
+continue with the README.
 
 ## 2. Design in your browser
 

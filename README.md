@@ -6,6 +6,8 @@
 
 This is the [Tiny Tapeout Verilog template](https://github.com/TinyTapeout/ttsky-verilog-template)
 streamlined and enriched by [Makerchip](https://makerchip.com), with support for VS Code integration and AI assistance.
+One template serves every Tiny Tapeout process (PDK): `pdk` in [info.yaml](info.yaml) selects it, so retargeting
+your design to another shuttle's process is a one-line change. (Maintainers: see [UPSTREAM.md](UPSTREAM.md).)
 
 ## What is Tiny Tapeout?
 
@@ -27,7 +29,7 @@ Actions), and views that show its results.
 
 Ask your agent to, e.g., "Set up a Tiny Tapeout project with Makerchip," and follow its guidance. It will
 create your repo from this template (asking you for its name and where to put it), enable its GitHub Pages, fill in your project's information (asking you for
-it), and add the "Run TT Flow" button to `src/project.tlv`. (To do this by hand instead, or if anything goes awry, see
+it, including the shuttle you're targeting), and open `src/project.tlv`, whose title bar has the "Run TT Flow" button. Your agent can help you change these configurations anytime. (To do this by hand instead, or if anything goes awry, see
 [BROWSER.md](BROWSER.md#1-set-up-by-hand).)
 
 ### 2. Design
