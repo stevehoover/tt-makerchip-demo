@@ -1,11 +1,11 @@
 # Tiny Tapeout project information
 project:
-  title:        "Makerchip TT demo: counter"      # Project title
+  title:        "Makerchip TT demo: Desert Dash"      # Project title
   author:       "Steve Hoover"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  "A free-running 8-bit counter on uo_out, to demo the Makerchip TT flow"      # One line description of what your project does
+  description:  "An endless-runner VGA game, played with a gamepad, to demo the Makerchip TT flow"      # One line description of what your project does
   language:     "TL-Verilog" # other examples include Verilog, SystemVerilog, Amaranth, VHDL, etc
-  clock_hz:     0       # Clock frequency in Hz (or 0 if not applicable)
+  clock_hz:     25175000       # Clock frequency in Hz (or 0 if not applicable)
 
   # The process (PDK) to build for, matching your shuttle: sky130A, gf180mcuD, ihp-sg13cmos5l or ihp-sg13g2.
   # (Read by this template's workflows; not a Tiny Tapeout field.)
@@ -13,7 +13,7 @@ project:
 
   # How many tiles your design occupies? A single tile is about 167x108 uM (sky130A).
   # Valid values depend on the PDK: see tech/<pdk>/tile_sizes.yaml in TinyTapeout/tt-support-tools.
-  tiles: "1x1"
+  tiles: "1x2"
 
   # Your top module name must start with "tt_um_". Make it unique by including your github username:
   top_module:  "tt_um_stevehoover_mc_demo1"
@@ -32,20 +32,20 @@ pinout:
   ui[1]: ""
   ui[2]: ""
   ui[3]: ""
-  ui[4]: ""
-  ui[5]: ""
-  ui[6]: ""
+  ui[4]: "gamepad latch"
+  ui[5]: "gamepad clock"
+  ui[6]: "gamepad data"
   ui[7]: ""
 
   # Outputs
-  uo[0]: "count[0]"
-  uo[1]: "count[1]"
-  uo[2]: "count[2]"
-  uo[3]: "count[3]"
-  uo[4]: "count[4]"
-  uo[5]: "count[5]"
-  uo[6]: "count[6]"
-  uo[7]: "count[7]"
+  uo[0]: "R1"
+  uo[1]: "G1"
+  uo[2]: "B1"
+  uo[3]: "VSync"
+  uo[4]: "R0"
+  uo[5]: "G0"
+  uo[6]: "B0"
+  uo[7]: "HSync"
 
   # Bidirectional pins
   uio[0]: ""

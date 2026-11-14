@@ -25,18 +25,22 @@ async def test_project(dut):
 
     dut._log.info("Test project behavior")
 
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
+    # VGA line timing: hsync (uo_out[7], active low) is a 96-cycle pulse every 800 cycles.
+    def hsync():
+        return (int(dut.uo_out.value) >> 7) & 1
 
-    # Wait for one clock cycle to see the output values
-    await ClockCycles(dut.clk, 1)
+    async def cycles_until(level):
+        cycles = 0
+        while hsync() != level:
+            await ClockCycles(dut.clk, 1)
+            cycles += 1
+            assert cycles <= 1000, "hsync stuck"
+        return cycles
 
-    # The counter advances once per cycle (mod 256).
-    start = int(dut.uo_out.value)
-    await ClockCycles(dut.clk, 10)
-    assert int(dut.uo_out.value) == (start + 10) % 256
+    await cycles_until(1)
+    await cycles_until(0)  # A pulse starts.
+    pulse = await cycles_until(1)
+    rest = await cycles_until(0)
+    assert pulse == 96, f"hsync pulse of {pulse} cycles"
+    assert pulse + rest == 800, f"line of {pulse + rest} cycles"
     assert dut.uio_oe.value == 0
-
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
