@@ -13,7 +13,7 @@
    // ---SETTINGS---
    var(my_design, tt_um_stevehoover_mc_demo1)  /// Change tt_um_example to tt_um_<your-github-username>_<name-of-your-project>. (See README.md.)
    var(target, ASIC) /// Use "FPGA" for TT03 Demo Boards (without bidirectional I/Os).
-   var(in_fpga, 1)   /// 1 to include the demo board visualization. (Note: Logic will be under /fpga_pins/fpga.)
+   var(in_fpga, 1)   /// 1 to include the demo board visualization. (Note: Logic will be under /fpga_pins/fpga, except with vga.)
    var(vga, 1)       /// 1 for a VGA design on the Tiny VGA Pmod (uo_out): drive R, G and B (all [1:0]; see tt_vga() in tiny_tapeout_lib.tlv)
                      /// Enables VGA features in Makerchip.
    var(vga_makerchip_scale, 1)
@@ -30,13 +30,12 @@
    // If debouncing, your top module is wrapped within a debouncing module, so it has a different name.
    var(user_module_name, m5_if(m5_debounce_inputs, my_design, m5_my_design))
    var(debounce_cnt, m5_if_defined_as(MAKERCHIP, 1, 8'h03, 8'hff))
-   // No TT lab outside of Makerchip, nor for VGA (whose output the demo board can't show).
+   // No TT lab outside of Makerchip.
    if_defined_as(MAKERCHIP, 1, [''], ['m5_set(in_fpga, 0)'])
-   if(m5_vga, ['m5_set(in_fpga, 0)'])
    var(vga_scale, m5_if_defined_as(MAKERCHIP, 1, m5_vga_makerchip_scale, 1))  // (Read by the library.)
 \SV
    // Include Tiny Tapeout Lab.
-   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/5cf8a05fea5ad21eb73f515c23811af4bfc1937b/tlv_lib/tiny_tapeout_lib.tlv'])
+   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/ebe0a5a52d5b1bb0e57ad1ee46cbd0b309365e87/tlv_lib/tiny_tapeout_lib.tlv'])
 
 \TLV my_design()
 
@@ -175,7 +174,8 @@
    m5+tt_connections()
 
    // Instantiate the Virtual FPGA Lab.
-   m5+board(/top, /fpga, 7, $, , my_design)
+   // (A VGA design isn't in the FPGA, but beside tt_vga(); the board just shows the pins.)
+   m5+board(/top, m5_if(m5_vga, [''], /fpga), 7, $, , my_design)
    // Label the switch inputs [0..7] (1..8 on the physical switch panel) (bottom-to-top).
    m5+tt_input_labels_viz(['"UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED"'])
 
@@ -250,7 +250,8 @@ module m5_user_module_name (
 \TLV
    m5_if(m5_vga, ['m5+tt_vga(0)'])  // 0: the pixel latency (see tt_vga()).
    m5_if(m5_gamepad, ['m5+tt_gamepad(m5_gamepad)'])
-   m5_if(m5_in_fpga, ['m5+tt_lab()'], ['m5+my_design()'])
+   m5_if(m5_in_fpga, ['m5+tt_lab()'])
+   m5_if(m5_calc(m5_in_fpga && ! m5_vga), [''], ['m5+my_design()'])
 
 \SV_plus
 
