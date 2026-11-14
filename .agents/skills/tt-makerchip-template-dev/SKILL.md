@@ -22,41 +22,53 @@ The repo is a Git fork of `TinyTapeout/ttsky-verilog-template` (remote `upstream
   `test/Makefile`, `test/tb.v` and `src/config.json`. `UPSTREAM.md` is the primary doc for this: which parts are
   PDK-specific, the pinned `tt-gds-action` commit and what it fixes, the TT templates' synced commits, and how to
   update.
+- **`.github/workflows/makerchip.yaml`:** after TT's `gds`, `test` and `docs` runs, it republishes the project's
+  GitHub Pages with everything they produced (TT's viewer files, all artifacts and job logs, and a
+  `manifest.json`), for Makerchip's TT views. It is the only workflow TT's templates lack; the makerchip-tt-views
+  README describes what it publishes.
 - Docs (`README.md`, `BROWSER.md`), `.vscode/extensions.json` recommending the Makerchip extension, and
   `test/test.py` checking the template's all-zero outputs.
-- **Temporary:** `PLACEHOLDER` values in `info.yaml` and `docs/info.md`, so the template's own CI runs the whole
-  flow. TT's templates leave these blank on purpose (each project must supply them), and this template will too
-  once they're removed; its own CI will then fail like TT's, so test on a project instead (below).
+- Like TT's, the template leaves the project's identity and docs blank in `info.yaml` and `docs/info.md`, since
+  each project must supply them. So its own `gds` and `docs` runs fail TT's checks by design; test on the demo
+  project instead (below).
 
 ## Design choices and alternatives
 
-- **Committed `.sv` vs. building it in CI.** The archived
+- **Committed `.sv` vs. building it in CI.** TT's flow has no front-end hook, so generated Verilog must be one
+  or the other. The archived
   [stevehoover/tt10-makerchip-template](https://github.com/stevehoover/tt10-makerchip-template) (and its tt07/tt08
   predecessors) instead built the `.sv` in CI: a "Build Verilog" step (`cd test && make verilog`, installing
   `sandpiper-saas`) before `tt-gds-action` in each workflow, with the `.sv` ignored by Git. That keeps the
   `.tlv` the only source and can't go stale, but every run depends on SandPiper-SaaS and every workflow differs
-  from TT's. Committing it was chosen so the workflows stay TT's; staleness is the cost (a hash stamp in the
-  `.sv`, ideally added by SandPiper, would let CI detect it).
+  from TT's. Committing it was chosen so the workflows stay TT's; staleness is the cost. "Run TT Flow" stamps
+  the `.tlv`'s hash in the `.sv`, and `makerchip.yaml` records in `manifest.json` whether they still match (not
+  for a `.sv` generated otherwise, nor for changes in included libraries).
 - **One template vs. one per PDK.** TT keeps one per PDK. One template was chosen (and proven on sky130A,
   gf180mcuD and ihp-sg13cmos5l) so users retarget with one line and the Makerchip changes live once; the cost is
   porting TT's GF and IHP template changes by hand, per `UPSTREAM.md`.
+- **Not a TT template.** TT's app checks only the PDK and a passing build, not which template a project came from.
 
 ## What other components rely on
 
 - The **Makerchip extension's "Run TT Flow" button** shows on a `.tlv` in `src/` of a project with `info.yaml`
-  at its root, writes `src/<name>.sv` beside it, and compiles with SandPiper flags that duplicate the `verilog`
-  rule's in `test/Makefile` (`TT_SANDPIPER_ARGS` in the extension's `src/tinyTapeout.ts`); keep them in sync. Its
-  pre-flight check mirrors TT's required-info checks.
+  at its root, writes `src/<name>.sv` beside it, and compiles with the SandPiper flags in `test/Makefile`'s
+  one-line `SANDPIPER_ARGS = ...` (which the `verilog` rule also uses). Its pre-flight check mirrors TT's
+  required-info checks, and an optional setting runs `make` in `test/` and reads `test/results.xml`.
 - The **TT views** (stevehoover/makerchip-tt-views) read the project's GitHub Pages as TT's `viewer` job lays it
-  out (`gds_render.png`, `tinytapeout.oas`, and the PDK in the redirect page), and job names (`gds`, `viewer`)
-  from the Actions API.
+  out (`gds_render.png`, `tinytapeout.oas`, and the PDK in the redirect page), which `makerchip.yaml` keeps, and
+  job names (`gds`, `viewer`) from the Actions API.
 - `project.tlv` uses M5's `MAKERCHIP` to include the lab and stimulus only in Makerchip compiles; the TT compile
   must not define it.
+- The **TT VGA view** runs the Makerchip compile's Verilog in VGA Playground, so `project.tlv` keeps
+  `--inlineGen` on its first line and its `top` test bench in `` `ifdef MAKERCHIP`` (see the makerchip-tt-views
+  README, "Designs for TT VGA").
 
 ## Testing a change
 
-Push to a test project made from the template, with its own project info filled in (e.g.
-stevehoover/tt-makerchip-extension-demo1, after merging the template's latest changes into it), with `project.pdk` set to each PDK in turn, and check that `gds` (with `precheck`,
-`gl_test`, `viewer`), `test` and `docs` pass. Each build's `tt_submission/pdk.json` records the PDK and tool
+Test on [stevehoover/tt-makerchip-demo](https://github.com/stevehoover/tt-makerchip-demo), an 8-bit counter
+with its project info filled in. It is a clone of this repo, not made with "Use this template", so it shares this
+history: in its clone (remote `template` for this repo), `git pull template main` brings in a change. Push it
+with `project.pdk` set to each PDK in turn, waiting for each `gds` run to finish, and check that `gds` (with
+`precheck`, `gl_test`, `viewer`), `test` and `docs` pass. Each build's `tt_submission/pdk.json` records the PDK and tool
 versions it used. Pushes a few minutes apart can collide in their Pages deploys (a `viewer` "in progress"
 failure); rerun it.

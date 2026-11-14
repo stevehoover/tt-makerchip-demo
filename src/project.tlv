@@ -1,4 +1,4 @@
-\m5_TLV_version 1d --debugSigsYosys --fmtFlatSignals: tl-x.org
+\m5_TLV_version 1d --inlineGen --debugSigsYosys --fmtFlatSignals: tl-x.org
 \m5
    /**
    This template is for developing Tiny Tapeout designs using Makerchip.
@@ -14,6 +14,12 @@
    var(my_design, tt_um_stevehoover_mc_demo1)  /// Change tt_um_example to tt_um_<your-github-username>_<name-of-your-project>. (See README.md.)
    var(target, ASIC) /// Use "FPGA" for TT03 Demo Boards (without bidirectional I/Os).
    var(in_fpga, 1)   /// 1 to include the demo board visualization. (Note: Logic will be under /fpga_pins/fpga.)
+   var(vga, 0)       /// 1 for a VGA design on the Tiny VGA Pmod (uo_out): drive R, G and B (all [1:0]; see tt_vga() in tiny_tapeout_lib.tlv)
+                     /// Enables VGA features in Makerchip.
+   var(vga_makerchip_scale, 1)
+                     /// In Makerchip only, divide the VGA timing by this (e.g. 8 for 80x60), so whole frames fit in the
+                     /// simulation (and its VIZ). Makerchip's TT VGA view then shows the small frame too.
+   var(gamepad, 0)   /// 1 or 2: controllers on the Gamepad Pmod (ui_in[6:4]); read gamepad_up, etc. (see tt_gamepad()).
    var(debounce_inputs, 0)
                      /// Legal values:
                      ///   1: Provide synchronization and debouncing on all input signals.
@@ -24,21 +30,24 @@
    // If debouncing, your top module is wrapped within a debouncing module, so it has a different name.
    var(user_module_name, m5_if(m5_debounce_inputs, my_design, m5_my_design))
    var(debounce_cnt, m5_if_defined_as(MAKERCHIP, 1, 8'h03, 8'hff))
-   // No TT lab outside of Makerchip.
+   // No TT lab outside of Makerchip, nor for VGA (whose output the demo board can't show).
    if_defined_as(MAKERCHIP, 1, [''], ['m5_set(in_fpga, 0)'])
+   if(m5_vga, ['m5_set(in_fpga, 0)'])
+   var(vga_scale, m5_if_defined_as(MAKERCHIP, 1, m5_vga_makerchip_scale, 1))  // (Read by the library.)
 \SV
    // Include Tiny Tapeout Lab.
-   m4_include_lib(['https:/']['/raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/62d6e18bc3d0ca8af451ccaff6d63974a69e645b/tlv_lib/tiny_tapeout_lib.tlv'])
+   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/2336df0b5963b70fface5c278db713de37399aeb/tlv_lib/tiny_tapeout_lib.tlv'])
 
 \TLV my_design()
 
-   // ============================================
-   // If you are using TL-Verilog for your design,
-   // your TL-Verilog logic goes here.
-   // Optionally, provide \viz_js here (for TL-Verilog or Verilog logic).
-   // Tiny Tapeout inputs can be referenced as, e.g. *ui_in.
-   // (Connect Tiny Tapeout outputs at the end of this template.)
-   // ============================================
+   //   #####  #            #   #      #   #  #####  ####   #####
+   //     #    #            #   #      #   #  #      #   #  #
+   //     #    #      ###   #   #      #####  ####   ####   ####
+   //     #    #             # #       #   #  #      #  #   #
+   //     #    #####          #        #   #  #####  #   #  #####
+   //
+   // Your TL-Verilog logic, if any, and optionally \viz_js (for TL-Verilog or Verilog logic), which overlays the
+   // demo board's FPGA chip. Inputs: *ui_in[7:0], *uio_in[7:0] (the bits where uio_oe[7:0] is 0).
 
    // A free-running 8-bit counter, shown on the outputs.
    |count
@@ -46,6 +55,13 @@
          $reset = *reset;
          $count[7:0] = $reset ? 8'b0 : >>1$count + 8'b1;
          *uo_out = $count;
+
+   /*
+   // Connect Tiny Tapeout outputs
+   // Uncomment outputs here, and comment/delete them at the end of this file.
+   *uio_out = 8'b0;
+   *uio_oe = 8'b0;
+   */
 
 
 // Set up the Tiny Tapeout lab environment.
@@ -65,17 +81,19 @@
 // ================================================
 // A simple Makerchip Verilog test bench driving random stimulus.
 // Modify the module contents to your needs.
+// Only Makerchip's simulation defines MAKERCHIP, so other tools compiling this file (e.g. VGA Playground) skip it.
 // ================================================
 
+`ifdef MAKERCHIP
 module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, output logic passed, output logic failed);
    // Tiny tapeout I/O signals.
    logic [7:0] ui_in, uio_in, uo_out, uio_out, uio_oe;
    logic [31:0] r;
-   always @(posedge clk) r = m5_if_defined_as(MAKERCHIP, 1, ['$urandom()'], ['0']);
+   always @(posedge clk) r <= m5_if_defined_as(MAKERCHIP, 1, ['$urandom()'], ['0']);
    assign ui_in = r[7:0];
    assign uio_in = r[15:8];
-   logic ena = 1'b0;
-   logic rst_n = ! reset;
+   wire ena = 1'b1;  // High while the design is selected.
+   wire rst_n = ! reset;
 
    /*
    // Or, to provide specific inputs at specific times...
@@ -94,9 +112,11 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
    // Instantiate the Tiny Tapeout module.
    m5_my_design tt(.*);
 
-   assign passed = cyc_cnt > 100;
-   assign failed = 1'b0;
+   // (For VGA, "!clk ||" lets the simulation run past Makerchip's default 600 cycles.)
+   assign passed = m5_if(m5_vga, ['!clk || cyc_cnt > m5_vga_sim_cycles'], ['cyc_cnt > 100']);
+   assign failed = m5_if(m5_vga, ['!clk || 1'b0'], ['1'b0']);
 endmodule
+`endif
 
 
 // Provide a wrapper module to debounce input signals if requested.
@@ -125,22 +145,24 @@ module m5_user_module_name (
    (* keep *) wire _unused = &{ena, clk, reset, ui_in, uio_in, 1'b1};
 
 \TLV
+   m5_if(m5_vga, ['m5+tt_vga(0)'])  // 0: the pixel latency (see tt_vga()).
+   m5_if(m5_gamepad, ['m5+tt_gamepad(m5_gamepad)'])
    m5_if(m5_in_fpga, ['m5+tt_lab()'], ['m5+my_design()'])
 
 \SV_plus
 
-   // =========================================
-   // If you are using (System)Verilog for your design,
-   // your Verilog logic goes here.
-   // =========================================
+   //   #   #  #####  ####   ###  #       ###    ####      #   #  #####  ####   #####
+   //   #   #  #      #   #   #   #      #   #  #          #   #  #      #   #  #
+   //   #   #  ####   ####    #   #      #   #  #  ##      #####  ####   ####   ####
+   //    # #   #      #  #    #   #      #   #  #   #      #   #  #      #  #   #
+   //     #    #####  #   #  ###  #####   ###    ####      #   #  #####  #   #  #####
+   //
+   // Your (System)Verilog logic, if any. (Module interface above.)
 
-   // ...
 
 
-   // Connect Tiny Tapeout outputs.
-   // Note that my_design will be under /fpga_pins/fpga if m5_in_fpga.
-   // Example *uo_out = /fpga_pins/fpga|my_pipe>>3$uo_out;
-   assign *uio_out = 8'b0;
-   assign *uio_oe = 8'b0;
+   // Connect Tiny Tapeout outputs (uo_out is driven by the counter, in my_design).
+   assign uio_out = 8'b0;
+   assign uio_oe = 8'b0;
 
 endmodule

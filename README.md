@@ -18,7 +18,8 @@ To learn more and get started, visit https://tinytapeout.com.
 ## Getting started
 
 These instructions assume you have:
-- a GitHub account
+- a GitHub account, and Git
+- (for agent-driven setup) the [GitHub CLI](https://cli.github.com/) (`gh`); your agent can install it
 - (preferred) VS Code with the [Makerchip extension](https://marketplace.visualstudio.com/items?itemName=RedwoodEDA.makerchip)
 - (preferred) an AI agent in VS Code (e.g. Copilot or Claude)
 
@@ -37,6 +38,13 @@ it, including the shuttle you're targeting), and open `src/project.tlv`, whose t
 Design in [src/project.tlv](src/project.tlv), in Verilog/SystemVerilog/TL-Verilog. (See "logic goes here" comments in the template.) The Makerchip button in its title
 bar compiles and simulates it, with the Tiny Tapeout demo board in the VIZ view. Adapt the testbench to your
 design (see [test/README.md](test/README.md)), and keep `pinout` and `docs/info.md` up to date.
+
+For a VGA design on the [Tiny VGA Pmod](https://tinytapeout.com/specs/pinouts/), set `vga` to 1 in the settings,
+drive the color signals `R`, `G` and `B` from your logic (see `tt_vga()` in Virtual FPGA Lab's
+`tiny_tapeout_lib.tlv`), and set `clock_hz: 25175000` and the VGA pins in `info.yaml`. Makerchip's TT VGA view
+shows it running, and its VIZ shows the frames simulated (set `vga_makerchip_scale` for whole frames). For the
+[Gamepad Pmod](https://tinytapeout.com/specs/pinouts/), set `gamepad` to 1 or 2 controllers and read
+`gamepad_up`, etc. (see `tt_gamepad()`).
 
 ### 3. Run the Tiny Tapeout flow
 
