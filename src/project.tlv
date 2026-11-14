@@ -36,7 +36,7 @@
    var(vga_scale, m5_if_defined_as(MAKERCHIP, 1, m5_vga_makerchip_scale, 1))  // (Read by the library.)
 \SV
    // Include Tiny Tapeout Lab.
-   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/2336df0b5963b70fface5c278db713de37399aeb/tlv_lib/tiny_tapeout_lib.tlv'])
+   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/5cf8a05fea5ad21eb73f515c23811af4bfc1937b/tlv_lib/tiny_tapeout_lib.tlv'])
 
 \TLV my_design()
 
