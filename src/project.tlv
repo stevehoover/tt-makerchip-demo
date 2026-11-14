@@ -108,7 +108,7 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
    m5_my_design tt(.*);
 
    assign passed = m5_if(m5_vga, ['cyc_cnt > m5_vga_sim_cycles'], ['cyc_cnt > 100']);
-   assign failed = 1'b0);
+   assign failed = 1'b0;
 endmodule
 `endif
 
