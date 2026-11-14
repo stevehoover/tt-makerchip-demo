@@ -112,9 +112,8 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
    // Instantiate the Tiny Tapeout module.
    m5_my_design tt(.*);
 
-   // (For VGA, "!clk ||" lets the simulation run past Makerchip's default 600 cycles.)
-   assign passed = m5_if(m5_vga, ['!clk || cyc_cnt > m5_vga_sim_cycles'], ['cyc_cnt > 100']);
-   assign failed = m5_if(m5_vga, ['!clk || 1'b0'], ['1'b0']);
+   assign passed = m5_if(m5_vga, ['cyc_cnt > m5_vga_sim_cycles'], ['cyc_cnt > 100']);
+   assign failed = 1'b0;
 endmodule
 `endif
 
