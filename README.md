@@ -42,7 +42,9 @@ design (see [test/README.md](test/README.md)), and keep `pinout` and `docs/info.
 For a VGA design on the [Tiny VGA Pmod](https://tinytapeout.com/specs/pinouts/), set `vga` to 1 in the settings,
 drive the color signals `R`, `G` and `B` from your logic (see `tt_vga()` in Virtual FPGA Lab's
 `tiny_tapeout_lib.tlv`), and set `clock_hz: 25175000` and the VGA pins in `info.yaml`. Makerchip's TT VGA view
-shows it running.
+shows it running, and its VIZ shows the frames simulated (set `vga_makerchip_scale` for whole frames). For the
+[Gamepad Pmod](https://tinytapeout.com/specs/pinouts/), set `gamepad` to 1 or 2 controllers and read
+`gamepad_up`, etc. (see `tt_gamepad()`).
 
 ### 3. Run the Tiny Tapeout flow
 

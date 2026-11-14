@@ -22,6 +22,10 @@ The repo is a Git fork of `TinyTapeout/ttsky-verilog-template` (remote `upstream
   `test/Makefile`, `test/tb.v` and `src/config.json`. `UPSTREAM.md` is the primary doc for this: which parts are
   PDK-specific, the pinned `tt-gds-action` commit and what it fixes, the TT templates' synced commits, and how to
   update.
+- **`.github/workflows/makerchip.yaml`:** after TT's `gds`, `test` and `docs` runs, it republishes the project's
+  GitHub Pages with everything they produced (TT's viewer files, all artifacts and job logs, and a
+  `manifest.json`), for Makerchip's TT views. It is the only workflow TT's templates lack; the makerchip-tt-views
+  README describes what it publishes.
 - Docs (`README.md`, `BROWSER.md`), `.vscode/extensions.json` recommending the Makerchip extension, and
   `test/test.py` checking the template's all-zero outputs.
 - Like TT's, the template leaves the project's identity and docs blank in `info.yaml` and `docs/info.md`, since
@@ -36,8 +40,9 @@ The repo is a Git fork of `TinyTapeout/ttsky-verilog-template` (remote `upstream
   predecessors) instead built the `.sv` in CI: a "Build Verilog" step (`cd test && make verilog`, installing
   `sandpiper-saas`) before `tt-gds-action` in each workflow, with the `.sv` ignored by Git. That keeps the
   `.tlv` the only source and can't go stale, but every run depends on SandPiper-SaaS and every workflow differs
-  from TT's. Committing it was chosen so the workflows stay TT's; staleness is the cost (a hash stamp in the
-  `.sv`, ideally added by SandPiper, would let CI detect it).
+  from TT's. Committing it was chosen so the workflows stay TT's; staleness is the cost. "Run TT Flow" stamps
+  the `.tlv`'s hash in the `.sv`, and `makerchip.yaml` records in `manifest.json` whether they still match (not
+  for a `.sv` generated otherwise, nor for changes in included libraries).
 - **One template vs. one per PDK.** TT keeps one per PDK. One template was chosen (and proven on sky130A,
   gf180mcuD and ihp-sg13cmos5l) so users retarget with one line and the Makerchip changes live once; the cost is
   porting TT's GF and IHP template changes by hand, per `UPSTREAM.md`.
@@ -50,8 +55,8 @@ The repo is a Git fork of `TinyTapeout/ttsky-verilog-template` (remote `upstream
   one-line `SANDPIPER_ARGS = ...` (which the `verilog` rule also uses). Its pre-flight check mirrors TT's
   required-info checks, and an optional setting runs `make` in `test/` and reads `test/results.xml`.
 - The **TT views** (stevehoover/makerchip-tt-views) read the project's GitHub Pages as TT's `viewer` job lays it
-  out (`gds_render.png`, `tinytapeout.oas`, and the PDK in the redirect page), and job names (`gds`, `viewer`)
-  from the Actions API.
+  out (`gds_render.png`, `tinytapeout.oas`, and the PDK in the redirect page), which `makerchip.yaml` keeps, and
+  job names (`gds`, `viewer`) from the Actions API.
 - `project.tlv` uses M5's `MAKERCHIP` to include the lab and stimulus only in Makerchip compiles; the TT compile
   must not define it.
 - The **TT VGA view** runs the Makerchip compile's Verilog in VGA Playground, so `project.tlv` keeps

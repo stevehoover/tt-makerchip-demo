@@ -15,6 +15,10 @@
    var(in_fpga, 1)   /// 1 to include the demo board visualization. (Note: Logic will be under /fpga_pins/fpga.)
    var(vga, 0)       /// 1 for a VGA design on the Tiny VGA Pmod (uo_out): drive R, G and B (all [1:0]; see tt_vga() in tiny_tapeout_lib.tlv)
                      /// Enables VGA features in Makerchip.
+   var(vga_makerchip_scale, 1)
+                     /// In Makerchip only, divide the VGA timing by this (e.g. 8 for 80x60), so whole frames fit in the
+                     /// simulation (and its VIZ). Makerchip's TT VGA view then shows the small frame too.
+   var(gamepad, 0)   /// 1 or 2: controllers on the Gamepad Pmod (ui_in[6:4]); read gamepad_up, etc. (see tt_gamepad()).
    var(debounce_inputs, 0)
                      /// Legal values:
                      ///   1: Provide synchronization and debouncing on all input signals.
@@ -28,9 +32,10 @@
    // No TT lab outside of Makerchip, nor for VGA (whose output the demo board can't show).
    if_defined_as(MAKERCHIP, 1, [''], ['m5_set(in_fpga, 0)'])
    if(m5_vga, ['m5_set(in_fpga, 0)'])
+   var(vga_scale, m5_if_defined_as(MAKERCHIP, 1, m5_vga_makerchip_scale, 1))  // (Read by the library.)
 \SV
    // Include Tiny Tapeout Lab.
-   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/6d29c36ae09ad7581b5da8b2192e109047e84628/tlv_lib/tiny_tapeout_lib.tlv'])
+   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/2336df0b5963b70fface5c278db713de37399aeb/tlv_lib/tiny_tapeout_lib.tlv'])
 
 \TLV my_design()
 
@@ -102,8 +107,8 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
    // Instantiate the Tiny Tapeout module.
    m5_my_design tt(.*);
 
-   assign passed = cyc_cnt > 100;
-   assign failed = 1'b0;
+   assign passed = m5_if(m5_vga, ['cyc_cnt > m5_vga_sim_cycles'], ['cyc_cnt > 100']);
+   assign failed = 1'b0);
 endmodule
 `endif
 
@@ -134,6 +139,7 @@ module m5_user_module_name (
 
 \TLV
    m5_if(m5_vga, ['m5+tt_vga(0)'])  // 0: the pixel latency (see tt_vga()).
+   m5_if(m5_gamepad, ['m5+tt_gamepad(m5_gamepad)'])
    m5_if(m5_in_fpga, ['m5+tt_lab()'], ['m5+my_design()'])
 
 \SV_plus
