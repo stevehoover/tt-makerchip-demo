@@ -77,16 +77,21 @@ for name, run in latest_runs().items():
 sub = f'{site}/runs/gds/tt_submission/tt_submission'  # (The artifact holds a tt_submission folder.)
 pdk = json.load(open(f'{sub}/pdk.json')) if os.path.exists(f'{sub}/pdk.json') else None
 
-# Omit the tools' binary and intermediate files (see OMIT), counting them by type.
+# Omit the tools' binary and intermediate files (see OMIT), and, whatever TT's tools come to produce, the largest files
+# (but not job logs) beyond BUDGET (well within GitHub Pages' 1 GB), counting them by type.
+BUDGET = 500e6
 omitted = {}
-for d, _, fs in os.walk(f'{site}/runs'):
-    for f in fs:
-        ext = os.path.splitext(f)[1].lower()
-        if ext in OMIT:
-            path = os.path.join(d, f)
-            count, size = omitted.get(ext, (0, 0))
-            omitted[ext] = (count + 1, size + os.path.getsize(path))
+files = sorted(((os.path.getsize(p), p) for p in glob.glob(f'{site}/runs/**/*', recursive=True) if os.path.isfile(p)),
+               reverse=True)
+total = sum(size for size, _ in files)
+for pass_omits in (lambda path, ext: ext in OMIT, lambda path, ext: total > BUDGET and '/logs/' not in path):
+    for size, path in files:
+        ext = os.path.splitext(path)[1].lower()
+        if os.path.exists(path) and pass_omits(path, ext):
+            count, omitted_size = omitted.get(ext, (0, 0))
+            omitted[ext] = (count + 1, omitted_size + size)
             os.remove(path)
+            total -= size
 
 # Each generated .sv stamped with its .tlv's hash ("// makerchip-tt: tlv-sha256 <hash>", by the Makerchip
 # extension's "Run TT Flow"): whether it was generated from the committed .tlv. Unstamped: unknown (null).

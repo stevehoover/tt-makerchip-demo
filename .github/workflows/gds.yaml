@@ -56,11 +56,14 @@ jobs:
       pages: write      # to deploy to Pages
       id-token: write   # to verify the deployment originates from an appropriate source
     steps:
-      # Makerchip: the rest of the results, in the directory TT's viewer action publishes.
+      # Makerchip: the rest of the results, in the directory TT's viewer action publishes. (Their failure mustn't keep
+      # TT's viewer from publishing the layout.)
       - uses: actions/checkout@v6
+        continue-on-error: true
         with:
           path: repo
       - run: python3 repo/.github/makerchip/publish.py
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -79,3 +82,16 @@ jobs:
         uses: actions/deploy-pages@v5
         with:
           artifact_name: github-pages-${{ github.run_attempt }}
+
+      # Makerchip: warn if Pages doesn't serve this commit's results, as when Pages ignores a deployment (see above) or
+      # TT's viewer action no longer publishes all of gh-pages/.
+      - if: ${{ !cancelled() && hashFiles('gh-pages/summary.json') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .html_url)
+          for i in $(seq 24); do
+            [ "$(curl -s "${url%/}/summary.json?t=$(date +%s)" | jq -r .sha 2>/dev/null)" = "$GITHUB_SHA" ] && exit 0
+            sleep 10
+          done
+          echo "::warning::GitHub Pages doesn't serve this commit's summary.json, so Makerchip's TT views can't show its results."
