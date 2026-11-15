@@ -58,7 +58,9 @@ for name, run in latest_runs().items():
     jobs = [j for j in api(f"repos/{repo}/actions/runs/{run['id']}/jobs")['jobs'] if j['status'] == 'completed']
     os.makedirs(f'{out}/logs', exist_ok=True)
     for j in jobs:
-        log = subprocess.run(['gh', 'api', f"repos/{repo}/actions/jobs/{j['id']}/logs"], capture_output=True)
+        # (Not gh api, which refuses text with terminal escape sequences, as logs have.)
+        log = subprocess.run(['curl', '-sSfL', '-H', f"Authorization: Bearer {os.environ['GH_TOKEN']}",
+                              f"https://api.github.com/repos/{repo}/actions/jobs/{j['id']}/logs"], capture_output=True)
         j['log'] = f"runs/{name}/logs/{j['name'].replace('/', '_')}.txt" if log.returncode == 0 else None
         if not j['log'] and j['conclusion'] != 'skipped':
             print(f"No log for {name}/{j['name']}:", log.stderr.decode(errors='replace').strip()[:500])
