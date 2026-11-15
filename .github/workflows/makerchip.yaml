@@ -53,33 +53,16 @@ jobs:
         if: steps.when.outputs.publish == 'true'
         run: python3 repo/.github/makerchip/publish.py
 
-      # (Unique per attempt, so a rerun's doesn't collide with an earlier attempt's.)
+      # (Unique per attempt: deploy-pages fails if the artifact name is ambiguous.)
       - name: Upload
-        id: upload
         if: steps.when.outputs.publish == 'true'
         uses: actions/upload-pages-artifact@v5
         with:
           path: site
           name: github-pages-${{ github.run_attempt }}
 
-      # As actions/deploy-pages does, but with a build version of its own: deploy-pages's is always the commit's SHA,
-      # which the viewer job's deployment also uses, and Pages requires it to be unique (with two, Pages may keep
-      # serving the viewer's).
       - name: Deploy
         if: steps.when.outputs.publish == 'true'
-        env:
-          ARTIFACT_ID: ${{ steps.upload.outputs.artifact_id }}
-        run: |
-          oidc=$(curl -sSf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value)
-          status_url=$(gh api "repos/$REPO/pages/deployments" -F artifact_id="$ARTIFACT_ID" \
-            -f pages_build_version="$SHA-makerchip-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -f oidc_token="$oidc" --jq .status_url)
-          for i in $(seq 60); do
-            sleep 5
-            status=$(gh api "${status_url#https://api.github.com/}" --jq .status)
-            echo "$status"
-            case "$status" in
-              succeed) exit 0 ;;
-              deployment_failed|deployment_content_failed|deployment_cancelled|deployment_lost) exit 1 ;;
-            esac
-          done
-          exit 1
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
