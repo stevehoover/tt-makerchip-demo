@@ -1,6 +1,6 @@
 # Tiny Tapeout project information
 project:
-  title: ""
+  title:        "Makerchip TT demo: Desert Dash"      # Project title
   author:       "Steve Hoover"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
   description:  "An endless-runner VGA game, played with a gamepad, to demo the Makerchip TT flow"      # One line description of what your project does
