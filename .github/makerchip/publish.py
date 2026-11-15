@@ -59,7 +59,9 @@ for name, run in latest_runs().items():
     os.makedirs(f'{out}/logs', exist_ok=True)
     for j in jobs:
         log = subprocess.run(['gh', 'api', f"repos/{repo}/actions/jobs/{j['id']}/logs"], capture_output=True)
-        j['log'] = f"runs/{name}/logs/{j['name'].replace('/', '_')}.txt" if log.returncode == 0 else None  # (Skipped.)
+        j['log'] = f"runs/{name}/logs/{j['name'].replace('/', '_')}.txt" if log.returncode == 0 else None
+        if not j['log'] and j['conclusion'] != 'skipped':
+            print(f"No log for {name}/{j['name']}:", log.stderr.decode(errors='replace').strip()[:500])
         if j['log']:
             open(f"{site}/{j['log']}", 'wb').write(log.stdout)
     conclusion = run['conclusion'] or ('failure' if any(j['conclusion'] == 'failure' for j in jobs) else 'success')
