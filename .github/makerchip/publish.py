@@ -1,9 +1,10 @@
-# Gathers what a commit's Tiny Tapeout workflows produced into ./site, for makerchip.yaml to publish to GitHub Pages:
-# TT's viewer files (as its `viewer` job publishes them), every run's artifacts and job logs (but not the tools'
-# binary databases), a manifest.json describing them, and a summary.json of the results. The makerchip-tt-views
-# README describes the layout. Run from the workflow's working directory, with the commit checked out in ./repo.
-# Environment: REPO (owner/name), SHA, and GH_TOKEN (for the gh CLI).
-import glob, hashlib, json, os, re, shutil, subprocess, zipfile
+# Gathers what a commit's Tiny Tapeout workflows produced into ./site, for gds.yaml's viewer job to publish to GitHub
+# Pages: TT's viewer files (as TT's `viewer` job publishes them), every run's artifacts and job logs (but not the
+# tools' binary databases), a manifest.json describing them, and a summary.json of the results. The
+# makerchip-tt-views README describes the layout. Run from the job's working directory, with the commit checked out
+# in ./repo. Environment: REPO (owner/name), SHA, GH_TOKEN (for the gh CLI), and GITHUB_RUN_ID (the gds run, still in
+# progress).
+import glob, hashlib, json, os, re, shutil, subprocess, time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
@@ -22,6 +23,15 @@ def api(path):
     return json.loads(gh('api', path))
 
 
+def latest_runs():
+    """The latest run of each TT workflow for this commit (gds, test, docs), by name."""
+    runs = {}
+    for run in api(f'repos/{repo}/actions/runs?head_sha={sha}&per_page=100')['workflow_runs']:
+        if run['name'] in ('gds', 'test', 'docs'):
+            runs.setdefault(run['name'], run)  # (Newest first.)
+    return runs
+
+
 def read(path):
     return open(path, encoding='utf-8', errors='replace').read() if os.path.exists(path) else None
 
@@ -29,34 +39,36 @@ def read(path):
 os.makedirs(site, exist_ok=True)
 open(f'{site}/.nojekyll', 'w').close()  # Serve every file as is.
 
-# The latest run of each TT workflow for this commit: its artifacts (in runs/<workflow>/<artifact>/) and, once
-# complete, its job logs (in runs/<workflow>/logs/).
+# Wait (up to 20 minutes) for the commit's test and docs runs, which normally finish well before gds.
+for _ in range(80):
+    if all(r['status'] == 'completed' for r in latest_runs().values() if str(r['id']) != os.environ['GITHUB_RUN_ID']):
+        break
+    time.sleep(15)
+
+# The latest run of each TT workflow for this commit: its artifacts (in runs/<workflow>/<artifact>/) and its completed
+# jobs' logs (runs/<workflow>/logs/<job>.txt). This gds run is in progress, judged by its other jobs.
 runs = {}
-for run in api(f'repos/{repo}/actions/runs?head_sha={sha}&per_page=100')['workflow_runs']:
-    name = run['name']
-    if name not in ('gds', 'test', 'docs') or name in runs:
-        continue  # Newest first.
+for name, run in latest_runs().items():
     out = f'{site}/runs/{name}'
     os.makedirs(out, exist_ok=True)
     arts = [a['name'] for a in api(f"repos/{repo}/actions/runs/{run['id']}/artifacts")['artifacts']
             if not a['expired'] and not a['name'].startswith('github-pages')]
     for a in arts:
         gh('run', 'download', str(run['id']), '-R', repo, '-n', a, '-D', f'{out}/{a}')
-    logs = run['status'] == 'completed'
-    if logs:
-        zip_path = f'{out}/logs.zip'
-        with open(zip_path, 'wb') as f:
-            f.write(subprocess.run(['gh', 'api', f"repos/{repo}/actions/runs/{run['id']}/logs"],
-                                   check=True, capture_output=True).stdout)
-        zipfile.ZipFile(zip_path).extractall(f'{out}/logs')
-        os.remove(zip_path)
-    jobs = api(f"repos/{repo}/actions/runs/{run['id']}/jobs")['jobs']
+    jobs = [j for j in api(f"repos/{repo}/actions/runs/{run['id']}/jobs")['jobs'] if j['status'] == 'completed']
+    os.makedirs(f'{out}/logs', exist_ok=True)
+    for j in jobs:
+        log = subprocess.run(['gh', 'api', f"repos/{repo}/actions/jobs/{j['id']}/logs"], capture_output=True)
+        j['log'] = f"runs/{name}/logs/{j['name'].replace('/', '_')}.txt" if log.returncode == 0 else None  # (Skipped.)
+        if j['log']:
+            open(f"{site}/{j['log']}", 'wb').write(log.stdout)
+    conclusion = run['conclusion'] or ('failure' if any(j['conclusion'] == 'failure' for j in jobs) else 'success')
     runs[name] = {
-        'id': run['id'], 'url': run['html_url'], 'status': run['status'], 'conclusion': run['conclusion'],
+        'id': run['id'], 'url': run['html_url'], 'status': run['status'], 'conclusion': conclusion,
         'jobs': [{'name': j['name'], 'status': j['status'], 'conclusion': j['conclusion'], 'url': j['html_url'],
-                  'failed_steps': [s['name'] for s in j.get('steps', []) if s['conclusion'] == 'failure']}
+                  'log': j['log'], 'failed_steps': [s['name'] for s in j.get('steps', []) if s['conclusion'] == 'failure']}
                  for j in jobs],
-        'artifacts': arts, 'logs': logs,
+        'artifacts': arts,
     }
 
 # TT's viewer files, as its viewer job publishes them: the layout, its render, and an index.html that redirects to
@@ -149,11 +161,9 @@ def log_excerpt(path):
 failures = []
 for name, run in runs.items():
     for job in run['jobs']:
-        if job['conclusion'] != 'failure':
-            continue
-        log = next(iter(glob.glob(f"{site}/runs/{name}/logs/*_{glob.escape(job['name'])}.txt")), None)
-        failures.append({'run': name, 'job': job['name'], 'steps': job['failed_steps'], 'url': job['url'],
-                         'log': os.path.relpath(log, site) if log else None, **(log_excerpt(log) if log else {})})
+        if job['conclusion'] == 'failure':
+            failures.append({'run': name, 'job': job['name'], 'steps': job['failed_steps'], 'url': job['url'],
+                             'log': job['log'], **(log_excerpt(f"{site}/{job['log']}") if job['log'] else {})})
 
 summary = {
     'sha': sha, 'pdk': pdk and pdk.get('PDK'), 'tiles': tiles and tiles.group(1),
