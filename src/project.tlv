@@ -7,13 +7,12 @@
    See the corresponding Git repository for build instructions.
    **/
 
-
    use(m5-1.0)  // See M5 docs in Makerchip IDE Learn menu.
 
    // ---SETTINGS---
    var(my_design, tt_um_stevehoover_mc_demo1)  /// Change tt_um_example to tt_um_<your-github-username>_<name-of-your-project>. (See README.md.)
    var(target, ASIC) /// Use "FPGA" for TT03 Demo Boards (without bidirectional I/Os).
-   var(in_fpga, 1)   /// 1 to include the demo board visualization. (Note: Logic will be under /fpga_pins/fpga, except with vga.)
+   var(in_fpga, 1)   /// 1 to include the demo board visualization. (Note: Logic will be under /fpga_pins/fpga.)
    var(vga, 1)       /// 1 for a VGA design on the Tiny VGA Pmod (uo_out): drive R, G and B (all [1:0]; see tt_vga() in tiny_tapeout_lib.tlv)
                      /// Enables VGA features in Makerchip.
    var(vga_makerchip_scale, 1)
@@ -35,9 +34,13 @@
    var(vga_scale, m5_if_defined_as(MAKERCHIP, 1, m5_vga_makerchip_scale, 1))  // (Read by the library.)
 \SV
    // Include Tiny Tapeout Lab.
-   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/ebe0a5a52d5b1bb0e57ad1ee46cbd0b309365e87/tlv_lib/tiny_tapeout_lib.tlv'])
+   m4_include_lib(['https://raw.githubusercontent.com/os-fpga/Virtual-FPGA-Lab/f18361f1ebbf39c6a910cfcee7b40bc1979360fd/tlv_lib/tiny_tapeout_lib.tlv'])
 
-\TLV my_design()
+// Your design, in scope /_top (/fpga, in the TT demo board's FPGA, or /top), with the VGA and gamepad support its
+// settings ask for.
+\TLV my_design(/_top)
+   m5_if(m5_vga, ['m5+tt_vga(0)'])  // 0: the pixel latency (see tt_vga()).
+   m5_if(m5_gamepad, ['m5+tt_gamepad(/_top, m5_gamepad)'])
 
    //   #####  #            #   #      #   #  #####  ####   #####
    //     #    #            #   #      #   #  #      #   #  #
@@ -46,7 +49,8 @@
    //     #    #####          #        #   #  #####  #   #  #####
    //
    // Your TL-Verilog logic, if any, and optionally \viz_js (for TL-Verilog or Verilog logic), which overlays the
-   // demo board's FPGA chip. Inputs: *ui_in[7:0], *uio_in[7:0] (the bits where uio_oe[7:0] is 0).
+   // demo board's FPGA chip. Inputs: *ui_in[7:0], *uio_in[7:0] (the bits where uio_oe[7:0] is 0). From deeper
+   // scopes, reach this one's signals as /_top$sig.
 
    // =====================================================================================================
    // Desert Dash: an endless runner. Jump the cacti with A, B or up; after a crash, A or start restarts.
@@ -84,13 +88,13 @@
    // Two cactus slots, each a single or double cactus at x = $Xpos - 64 (so they can leave the screen). As one
    // leaves, it returns beyond the other by a random, always jumpable, gap.
    /obs[1:0]
-      $gone = $Xpos <= {7'd0, /top$speed};
-      $other_x[10:0] = /obs[(#obs + 1) % 2]$Xpos - {7'd0, /top$speed};
-      $after_other[10:0] = $other_x + 11'd352 + {3'd0, /top$Lfsr[7:0]};
-      $Xpos[10:0] <= /top$restart ? (#obs == 0 ? 11'd840 : 11'd1240) : ! /top$step ? $RETAIN :
-                  ! $gone ? $Xpos - {7'd0, /top$speed} :
+      $gone = $Xpos <= {7'd0, /_top$speed};
+      $other_x[10:0] = /obs[(#obs + 1) % 2]$Xpos - {7'd0, /_top$speed};
+      $after_other[10:0] = $other_x + 11'd352 + {3'd0, /_top$Lfsr[7:0]};
+      $Xpos[10:0] <= /_top$restart ? (#obs == 0 ? 11'd840 : 11'd1240) : ! /_top$step ? $RETAIN :
+                  ! $gone ? $Xpos - {7'd0, /_top$speed} :
                   $after_other > 11'd704 ? $after_other : 11'd704;
-      $Double <= /top$restart ? 1'b0 : /top$step && $gone ? /top$Lfsr[8] : $RETAIN;
+      $Double <= /_top$restart ? 1'b0 : /_top$step && $gone ? /_top$Lfsr[8] : $RETAIN;
    // A crash: a runner pixel drawn over a cactus pixel, during a frame.
    $Hit <= $restart || $frame_end ? 1'b0 : $Hit || ($runner_px && $cactus_px && $video_active);
    $GameOver <= $restart ? 1'b0 : $frame_end && $Hit ? 1'b1 : $RETAIN;
@@ -120,8 +124,8 @@
       $cy[4:2] == 3'd4 ? 8'b01111100 :
                          8'b00010000;
    /obs[1:0]
-      $cx[10:0] = {1'd0, /top$Hpos} + 11'd64 - $Xpos;
-      $px = $cx < ($Double ? 11'd64 : 11'd32) && /top$cy < 10'd32 && /top$cactus_row[3'd7 - $cx[4:2]];
+      $cx[10:0] = {1'd0, /_top$Hpos} + 11'd64 - $Xpos;
+      $px = $cx < ($Double ? 11'd64 : 11'd32) && /_top$cy < 10'd32 && /_top$cactus_row[3'd7 - $cx[4:2]];
    $cactus_px = /obs[0]$px || /obs[1]$px;
    // The score: four digits at x 560-623, y 16-35, 16 pixels apart.
    $sx[9:0] = $Hpos - 10'd560;
@@ -161,7 +165,7 @@
 
    /*
    // Connect Tiny Tapeout outputs
-   // Uncomment outputs here, and comment/delete them at the end of this file.
+   // Uncomment outputs here, and comment/delete them at the end of this file. (uo_out is driven by tt_vga().)
    *uio_out = 8'b0;
    *uio_oe = 8'b0;
    */
@@ -174,8 +178,7 @@
    m5+tt_connections()
 
    // Instantiate the Virtual FPGA Lab.
-   // (A VGA design isn't in the FPGA, but beside tt_vga(); the board just shows the pins.)
-   m5+board(/top, m5_if(m5_vga, [''], /fpga), 7, $, , my_design)
+   m5+board(/top, /fpga, 7, $, , my_design)
    // Label the switch inputs [0..7] (1..8 on the physical switch panel) (bottom-to-top).
    m5+tt_input_labels_viz(['"UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED", "UNUSED"'])
 
@@ -221,7 +224,6 @@ module top(input logic clk, input logic reset, input logic [31:0] cyc_cnt, outpu
 endmodule
 `endif
 
-
 // Provide a wrapper module to debounce input signals if requested.
 // TODO: The debounce module is conditioned for TT03.
 m5_if(m5_debounce_inputs, ['m5_tt_top(m5_my_design)'])
@@ -248,10 +250,8 @@ module m5_user_module_name (
    (* keep *) wire _unused = &{ena, clk, reset, ui_in, uio_in, 1'b1};
 
 \TLV
-   m5_if(m5_vga, ['m5+tt_vga(0)'])  // 0: the pixel latency (see tt_vga()).
-   m5_if(m5_gamepad, ['m5+tt_gamepad(m5_gamepad)'])
-   m5_if(m5_in_fpga, ['m5+tt_lab()'])
-   m5_if(m5_calc(m5_in_fpga && ! m5_vga), [''], ['m5+my_design()'])
+   m5_if(m5_in_fpga, ['m5+tt_lab()'], ['m5+my_design(/top)'])
+   m5_if(m5_vga, ['m5+tt_vga_viz()'])
 
 \SV_plus
 
@@ -265,7 +265,8 @@ module m5_user_module_name (
 
 
 
-   // Connect Tiny Tapeout outputs (uo_out is driven by tt_vga()).
+   // Connect Tiny Tapeout outputs
+   m5_if(m5_vga, ['// (uo_out is driven by tt_vga().)'], ['assign uo_out = 8'b0;'])
    assign uio_out = 8'b0;
    assign uio_oe = 8'b0;
 
