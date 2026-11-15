@@ -61,8 +61,12 @@ jobs:
           path: site
           name: github-pages-${{ github.run_attempt }}
 
+      # Its build version (GITHUB_SHA by default), which must be unique, distinguishes this deployment from the
+      # viewer job's of the same commit; Pages may otherwise keep serving the viewer's.
       - name: Deploy
         if: steps.when.outputs.publish == 'true'
         uses: actions/deploy-pages@v5
+        env:
+          GITHUB_SHA: ${{ env.SHA }}-makerchip-${{ github.run_id }}-${{ github.run_attempt }}
         with:
           artifact_name: github-pages-${{ github.run_attempt }}
