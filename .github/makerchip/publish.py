@@ -1,15 +1,14 @@
-# Gathers what a commit's Tiny Tapeout workflows produced into ./site, for gds.yaml's viewer job to publish to GitHub
-# Pages: TT's viewer files (as TT's `viewer` job publishes them), every run's artifacts and job logs (but not the
-# tools' binary databases), a manifest.json describing them, and a summary.json of the results. The
-# makerchip-tt-views README describes the layout. Run from the job's working directory, with the commit checked out
-# in ./repo. Environment: REPO (owner/name), SHA, GH_TOKEN (for the gh CLI), and GITHUB_RUN_ID (the gds run, still in
-# progress).
-import glob, hashlib, json, os, re, shutil, subprocess, time
+# Gathers what a commit's Tiny Tapeout workflows produced into ./gh-pages, where gds.yaml's viewer job has TT's viewer
+# action add its files and publish them all to GitHub Pages: every run's artifacts and job logs (but not the tools'
+# binary databases), a manifest.json describing them, and a summary.json of the results. The makerchip-tt-views
+# README describes the layout. Run from the job's working directory, with the commit checked out in ./repo.
+# Environment: REPO (owner/name), SHA, GH_TOKEN (for the gh CLI), and GITHUB_RUN_ID (the gds run, still in progress).
+import glob, hashlib, json, os, re, subprocess, time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 repo, sha = os.environ['REPO'], os.environ['SHA']
-site = 'site'
+site = 'gh-pages'
 # Intermediate files that only EDA tools read (OpenROAD databases, layouts, parasitics, timing). They stay in the runs'
 # artifact zips; the final layout is published as tinytapeout.{gds,oas}.
 OMIT = ('.odb', '.gds', '.oas', '.mag', '.def', '.sdf', '.spef', '.lib')
@@ -75,20 +74,8 @@ for name, run in latest_runs().items():
         'artifacts': arts,
     }
 
-# TT's viewer files, as its viewer job publishes them: the layout, its render, and an index.html that redirects to
-# TT's 3D viewer (and names the PDK).
 sub = f'{site}/runs/gds/tt_submission/tt_submission'  # (The artifact holds a tt_submission folder.)
 pdk = json.load(open(f'{sub}/pdk.json')) if os.path.exists(f'{sub}/pdk.json') else None
-for ext in ('gds', 'oas'):
-    for f in glob.glob(f'{sub}/*.{ext}'):
-        shutil.copy(f, f'{site}/tinytapeout.{ext}')
-for f in glob.glob(f'{site}/runs/gds/gds_render/*.png'):
-    shutil.copy(f, f'{site}/gds_render.png')
-if pdk:
-    open(f'{site}/index.html', 'w').write(
-        '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Redirecting to 3D Viewer...</title>'
-        '</head><body><script>location.href = "https://gds-viewer.tinytapeout.com/?pdk=' + pdk['PDK'] +
-        '&model=" + encodeURIComponent(location.href + "/tinytapeout.oas");</script></body></html>\n')
 
 # Omit the tools' binary and intermediate files (see OMIT), counting them by type.
 omitted = {}

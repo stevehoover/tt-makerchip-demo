@@ -41,79 +41,41 @@ jobs:
       - name: GL test
         uses: TinyTapeout/tt-gds-action/gl_test@d4783dbe16287f6e367949a5ca93d47015283adc  # See UPSTREAM.md.
 
-  # TT's viewer job, replaced to publish, besides its layout files, everything the commit's runs produced (see
-  # ../makerchip/publish.py and UPSTREAM.md). One Pages deployment per commit: Pages may ignore a second deployment of
-  # the same commit (actions/deploy-pages#383).
+  # TT's viewer job, publishing (besides TT's viewer files) everything the commit's runs produced, so a commit gets one
+  # Pages deployment: Pages may ignore a second one (actions/deploy-pages#383). Makerchip's changes are marked (see
+  # UPSTREAM.md).
   viewer:
-    needs: [gds, precheck, gl_test]
-    if: always()  # (Failures publish their logs.)
+    needs: [gds, precheck, gl_test]  # Makerchip: was [gds]
+    if: always() && github.ref_name == github.event.repository.default_branch  # Makerchip
     runs-on: ubuntu-24.04
     concurrency:
-      group: pages  # One deployment at a time; a newer pending one replaces an older.
+      group: pages  # Makerchip: one deployment at a time; a newer pending one replaces an older.
     permissions:
-      actions: read     # to read the runs' artifacts and logs
-      contents: read
+      actions: read     # Makerchip: to read the runs' artifacts and logs
+      contents: read    # Makerchip
       pages: write      # to deploy to Pages
       id-token: write   # to verify the deployment originates from an appropriate source
-    env:
-      GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
-      SHA: ${{ github.sha }}
     steps:
-      # Pages deploys only from the default branch, and only its latest commit's results are of interest.
-      - name: Decide whether to publish
-        id: when
-        run: |
-          head=$(gh api "repos/$REPO/branches/${{ github.ref_name }}" --jq .commit.sha)
-          echo "publish=$([ '${{ github.ref_name }}' = '${{ github.event.repository.default_branch }}' ] && [ "$head" = "$SHA" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout repo
-        if: steps.when.outputs.publish == 'true'
-        uses: actions/checkout@v6
+      # Makerchip: the rest of the results, in the directory TT's viewer action publishes.
+      - uses: actions/checkout@v6
         with:
           path: repo
+      - run: python3 repo/.github/makerchip/publish.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
 
-      - name: Gather results
-        if: steps.when.outputs.publish == 'true'
-        run: python3 repo/.github/makerchip/publish.py
+      - uses: TinyTapeout/tt-gds-action/viewer@d4783dbe16287f6e367949a5ca93d47015283adc  # See UPSTREAM.md.
+        if: needs.gds.result == 'success'
 
-      # (Unique per attempt, so a rerun's doesn't collide with an earlier attempt's.)
-      - name: Upload
-        if: steps.when.outputs.publish == 'true'
+      # Makerchip: without a layout, TT's viewer action can't run, so publish the rest (e.g. the failure's logs).
+      - if: needs.gds.result != 'success'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: gh-pages
           name: github-pages-${{ github.run_attempt }}
-
-      - name: Deploy
-        id: deployment
-        if: steps.when.outputs.publish == 'true'
+      - if: needs.gds.result != 'success'
         uses: actions/deploy-pages@v5
         with:
           artifact_name: github-pages-${{ github.run_attempt }}
-
-      # As TT's viewer job does.
-      - name: Check for failure
-        if: failure()
-        run: |
-          cat << EOF >> $GITHUB_STEP_SUMMARY
-          # Error
-          Failed to deploy to GitHub Pages. [Click here for instructions how to fix](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part).
-          EOF
-          exit 1
-
-      - name: Display preview in workflow summary
-        if: steps.when.outputs.publish == 'true' && hashFiles('site/tinytapeout.oas') != ''
-        run: |
-          PAGE_URL=$(echo "${{ steps.deployment.outputs.page_url }}" | sed -e 's/\/$//')
-          PDK=$(jq -r .PDK site/runs/gds/tt_submission/tt_submission/pdk.json)
-          cat << EOF >> $GITHUB_STEP_SUMMARY
-          # 3D Viewer
-          [Open 3D viewer](https://gds-viewer.tinytapeout.com/?model=$PAGE_URL/tinytapeout.oas&pdk=$PDK)
-
-          # Tiny Tapeout Explorer
-          [Open in Tiny Tapeout Explorer](https://gds-explorer.tinytapeout.com/viewer?file=$PAGE_URL/tinytapeout.oas&pdk=$PDK)
-
-          # 2D Preview
-          ![png]($PAGE_URL/gds_render.png)
-          EOF
