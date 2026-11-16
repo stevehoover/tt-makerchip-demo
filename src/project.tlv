@@ -266,7 +266,6 @@ module m5_user_module_name (
    // Your (System)Verilog logic, if any. (Module interface above.)
 
 
-
    // Connect Tiny Tapeout outputs
    m5_if(m5_vga, ['// (uo_out is driven by tt_vga().)'], ['assign uo_out = 8'b0;'])
    assign uio_out = 8'b0;
