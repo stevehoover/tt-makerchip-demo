@@ -56,6 +56,9 @@
    // Desert Dash: an endless runner. Jump the cacti with A, B or up; after a crash, A or start restarts.
    // A 640x480 VGA picture (tt_vga()) and the Gamepad Pmod (tt_gamepad()). Sprites are 8x8 pixels and the
    // score's font 3x5, drawn 4x. The game state changes once per frame ($frame_end); the rest is per pixel.
+   // Other Tiny Tapeout runners, after Chrome's dinosaur game: VGA Dino Game by Anish Singhani
+   // (https://tinytapeout.com/chips/tt05/tt_um_dinogame), and Dino-7 by Dr Sopes, on a 7-segment display
+   // (https://tinytapeout.com/chips/ttgf26a/tt_um_dino7).
    // =====================================================================================================
    $reset = *reset;
    $jump = /gamepad[0]$a || /gamepad[0]$b || /gamepad[0]$up;
