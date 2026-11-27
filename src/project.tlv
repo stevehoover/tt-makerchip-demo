@@ -13,12 +13,12 @@
    var(my_design, tt_um_stevehoover_mc_demo1)  /// Change tt_um_example to tt_um_<your-github-username>_<name-of-your-project>. (See README.md.)
    var(target, ASIC) /// Use "FPGA" for TT03 Demo Boards (without bidirectional I/Os).
    var(in_fpga, 1)   /// 1 to include the demo board visualization. (Note: Logic will be under /fpga_pins/fpga.)
-   var(vga, 0)       /// 1 for a VGA design on the Tiny VGA Pmod (uo_out): drive R, G and B (all [1:0]; see tt_vga() in tiny_tapeout_lib.tlv)
+   var(vga, 1)       /// 1 for a VGA design on the Tiny VGA Pmod (uo_out): drive R, G and B (all [1:0]; see tt_vga() in tiny_tapeout_lib.tlv)
                      /// Enables VGA features in Makerchip.
    var(vga_makerchip_scale, 1)
                      /// In Makerchip only, divide the VGA timing by this (e.g. 8 for 80x60), so whole frames fit in the
                      /// simulation (and its VIZ). Makerchip's TT VGA view then shows the small frame too.
-   var(gamepad, 0)   /// 1 or 2: controllers on the Gamepad Pmod (ui_in[6:4]); read gamepad_up, etc. (see tt_gamepad()).
+   var(gamepad, 1)   /// 1 or 2: controllers on the Gamepad Pmod (ui_in[6:4]); read gamepad_up, etc. (see tt_gamepad()).
    var(debounce_inputs, 0)
                      /// Legal values:
                      ///   1: Provide synchronization and debouncing on all input signals.
@@ -52,34 +52,128 @@
    // demo board's FPGA chip. Inputs: *ui_in[7:0], *uio_in[7:0] (the bits where uio_oe[7:0] is 0). From deeper
    // scopes, reach this one's signals as /_top$sig.
 
-   // Hex Counter: a hex digit on the 7-segment display counts up once per clock cycle, pausing while ui_in[0]
-   // is high (lighting the decimal point).
+   // =====================================================================================================
+   // Desert Dash: an endless runner. Jump the cacti with A, B or up; after a crash, A or start restarts.
+   // A 640x480 VGA picture (tt_vga()) and the Gamepad Pmod (tt_gamepad()). Sprites are 8x8 pixels and the
+   // score's font 3x5, drawn 4x. The game state changes once per frame ($frame_end); the rest is per pixel.
+   // Other Tiny Tapeout runners, after Chrome's dinosaur game: VGA Dino Game by Anish Singhani
+   // (https://tinytapeout.com/chips/tt05/tt_um_dinogame), and Dino-7 by Dr Sopes, on a 7-segment display
+   // (https://tinytapeout.com/chips/ttgf26a/tt_um_dino7).
+   // =====================================================================================================
    $reset = *reset;
-   $pause = *ui_in[0];
-   $Count[3:0] <= $reset ? 4'h0 : $pause ? $RETAIN : $Count + 4'h1;
-   // Segments {g, f, e, d, c, b, a} for each hex digit.
-   $segments[6:0] =
-      $Count == 4'h0 ? 7'b0111111 :
-      $Count == 4'h1 ? 7'b0000110 :
-      $Count == 4'h2 ? 7'b1011011 :
-      $Count == 4'h3 ? 7'b1001111 :
-      $Count == 4'h4 ? 7'b1100110 :
-      $Count == 4'h5 ? 7'b1101101 :
-      $Count == 4'h6 ? 7'b1111101 :
-      $Count == 4'h7 ? 7'b0000111 :
-      $Count == 4'h8 ? 7'b1111111 :
-      $Count == 4'h9 ? 7'b1101111 :
-      $Count == 4'hA ? 7'b1110111 :
-      $Count == 4'hB ? 7'b1111100 :
-      $Count == 4'hC ? 7'b0111001 :
-      $Count == 4'hD ? 7'b1011110 :
-      $Count == 4'hE ? 7'b1111001 :
-                       7'b1110001;
+   $jump = /gamepad[0]$a || /gamepad[0]$b || /gamepad[0]$up;
+   $restart = $reset || ($GameOver && (/gamepad[0]$a || /gamepad[0]$start));
+   // Pseudo-random bits (a 16-bit LFSR, advanced every cycle).
+   $Lfsr[15:0] <= $reset ? 16'hACE1 : {$Lfsr[14:0], $Lfsr[15] ^ $Lfsr[13] ^ $Lfsr[12] ^ $Lfsr[10]};
 
+   // ---- Game state ----
+   $FrameCnt[3:0] <= $reset ? 4'd0 : $frame_end ? $FrameCnt + 4'd1 : $RETAIN;
+   $step = $frame_end && ! $GameOver;  // A frame of play.
+   // The runner's height above the ground, and its upward velocity (signed): a jump rises 120 pixels.
+   $on_ground = $Height == 8'd0;
+   $height_next[8:0] = {1'b0, $Height} + {{3{$Vel[5]}}, $Vel};
+   $Height[7:0] <= $restart ? 8'd0 : ! $step ? $RETAIN : $height_next[8] ? 8'd0 : $height_next[7:0];
+   $Vel[5:0] <= $restart ? 6'd0 : ! $step ? $RETAIN :
+                $on_ground && $Vel == 6'd0 ? ($jump ? 6'd15 : 6'd0) :
+                $height_next[8] ? 6'd0 :  // Landed.
+                $Vel - 6'd1;              // Gravity.
+   // The score, in decimal, counting 15 a second; the hundreds set the speed (pixels per frame).
+   $tick = $step && $FrameCnt[1:0] == 2'b11;
+   $Score0[3:0] <= $restart ? 4'd0 : ! $tick ? $RETAIN : $Score0 == 4'd9 ? 4'd0 : $Score0 + 4'd1;
+   $carry0 = $tick && $Score0 == 4'd9;
+   $Score1[3:0] <= $restart ? 4'd0 : ! $carry0 ? $RETAIN : $Score1 == 4'd9 ? 4'd0 : $Score1 + 4'd1;
+   $carry1 = $carry0 && $Score1 == 4'd9;
+   $Score2[3:0] <= $restart ? 4'd0 : ! $carry1 ? $RETAIN : $Score2 == 4'd9 ? 4'd0 : $Score2 + 4'd1;
+   $carry2 = $carry1 && $Score2 == 4'd9;
+   $Score3[3:0] <= $restart ? 4'd0 : ! $carry2 ? $RETAIN : $Score3 == 4'd9 ? 4'd0 : $Score3 + 4'd1;
+   $speed[3:0] = $Score3 != 4'd0 ? 4'd10 : 4'd5 + {1'b0, $Score2[3:1]};
+   $Scroll[9:0] <= $restart ? 10'd0 : $step ? $Scroll + {6'd0, $speed} : $RETAIN;
+   // Two cactus slots, each a single or double cactus at x = $Xpos - 64 (so they can leave the screen). As one
+   // leaves, it returns beyond the other by a random, always jumpable, gap.
+   /obs[1:0]
+      $gone = $Xpos <= {7'd0, /_top$speed};
+      $other_x[10:0] = /obs[(#obs + 1) % 2]$Xpos - {7'd0, /_top$speed};
+      $after_other[10:0] = $other_x + 11'd352 + {3'd0, /_top$Lfsr[7:0]};
+      $Xpos[10:0] <= /_top$restart ? (#obs == 0 ? 11'd840 : 11'd1240) : ! /_top$step ? $RETAIN :
+                  ! $gone ? $Xpos - {7'd0, /_top$speed} :
+                  $after_other > 11'd704 ? $after_other : 11'd704;
+      $Double <= /_top$restart ? 1'b0 : /_top$step && $gone ? /_top$Lfsr[8] : $RETAIN;
+   // A crash: a runner pixel drawn over a cactus pixel, during a frame.
+   $Hit <= $restart || $frame_end ? 1'b0 : $Hit || ($runner_px && $cactus_px && $video_active);
+   $GameOver <= $restart ? 1'b0 : $frame_end && $Hit ? 1'b1 : $RETAIN;
+
+   // ---- Pixels ----
+   // The runner (an original critter), at x 80-111, standing on the ground (y 400) at height 0. Its legs
+   // alternate as it runs. (Bit 7 is the leftmost pixel.)
+   $rx[9:0] = $Hpos - 10'd80;
+   $ry[9:0] = $Vpos + {2'd0, $Height} - 10'd368;
+   $stride = $on_ground && $FrameCnt[2];
+   $runner_row[7:0] =
+      $ry[4:2] == 3'd0 ? 8'b00001110 :
+      $ry[4:2] == 3'd1 ? 8'b00011011 :
+      $ry[4:2] == 3'd2 ? 8'b00011111 :
+      $ry[4:2] == 3'd3 ? 8'b10011100 :
+      $ry[4:2] == 3'd4 ? 8'b11111110 :
+      $ry[4:2] == 3'd5 ? 8'b01111100 :
+      $ry[4:2] == 3'd6 ? ($stride ? 8'b00011000 : 8'b00100100) :
+                         ($stride ? 8'b00100100 : 8'b00100010);
+   $runner_px = $rx < 10'd32 && $ry < 10'd32 && $runner_row[3'd7 - $rx[4:2]];
+   // Cacti, standing on the ground.
+   $cy[9:0] = $Vpos - 10'd368;
+   $cactus_row[7:0] =
+      $cy[4:2] == 3'd0 ? 8'b00010000 :
+      $cy[4:2] == 3'd1 ? 8'b00010100 :
+      $cy[4:2] <= 3'd3 ? 8'b01010100 :
+      $cy[4:2] == 3'd4 ? 8'b01111100 :
+                         8'b00010000;
+   /obs[1:0]
+      $cx[10:0] = {1'd0, /_top$Hpos} + 11'd64 - $Xpos;
+      $px = $cx < ($Double ? 11'd64 : 11'd32) && /_top$cy < 10'd32 && /_top$cactus_row[3'd7 - $cx[4:2]];
+   $cactus_px = /obs[0]$px || /obs[1]$px;
+   // The score: four digits at x 560-623, y 16-35, 16 pixels apart.
+   $sx[9:0] = $Hpos - 10'd560;
+   $sy[9:0] = $Vpos - 10'd16;
+   $digit[3:0] = $sx[5:4] == 2'd0 ? $Score3 : $sx[5:4] == 2'd1 ? $Score2 : $sx[5:4] == 2'd2 ? $Score1 : $Score0;
+   $glyph[14:0] =  // 3x5, top row first.
+      $digit == 4'd0 ? 15'b111_101_101_101_111 :
+      $digit == 4'd1 ? 15'b010_110_010_010_111 :
+      $digit == 4'd2 ? 15'b111_001_111_100_111 :
+      $digit == 4'd3 ? 15'b111_001_111_001_111 :
+      $digit == 4'd4 ? 15'b101_101_111_001_001 :
+      $digit == 4'd5 ? 15'b111_100_111_001_111 :
+      $digit == 4'd6 ? 15'b111_100_111_101_111 :
+      $digit == 4'd7 ? 15'b111_001_001_001_001 :
+      $digit == 4'd8 ? 15'b111_101_111_101_111 :
+                       15'b111_101_111_001_111;
+   $font_row[2:0] =
+      $sy[4:2] == 3'd0 ? $glyph[14:12] :
+      $sy[4:2] == 3'd1 ? $glyph[11:9] :
+      $sy[4:2] == 3'd2 ? $glyph[8:6] :
+      $sy[4:2] == 3'd3 ? $glyph[5:3] :
+                         $glyph[2:0];
+   $score_px = $sx < 10'd64 && $sy < 10'd20 && $sx[3:2] != 2'd3 && $font_row[2'd2 - $sx[3:2]];
+   // The ground: a line at y 400, then sand with pebbles, scrolling.
+   $gx[9:0] = $Hpos + $Scroll;
+   $ground = $Vpos >= 10'd400;
+   $ground_line = $Vpos[9:1] == 9'd200;
+   $pebble = ($gx[8:3] ^ {$Vpos[4:2], $Vpos[7:5]}) == 6'b101101 && $gx[2:1] == 2'b00 && ! $Vpos[1];
+   // Colors (2 bits each of red, green and blue), front to back. The sky turns red after a crash.
+   {*R, *G, *B} =
+      $score_px ? 6'b11_11_11 :
+      $runner_px ? ($GameOver ? 6'b10_00_00 : 6'b11_10_00) :
+      $cactus_px ? 6'b00_10_00 :
+      $ground_line || ($ground && $pebble) ? 6'b10_01_00 :
+      $ground ? 6'b11_11_01 :
+      $GameOver ? 6'b11_01_01 : 6'b01_10_11;
+
+   /*
    // Connect Tiny Tapeout outputs
-   *uo_out = {$pause, $segments};
+   // Uncomment outputs here, and comment/delete them at the end of this file. (uo_out is driven by tt_vga().)
    *uio_out = 8'b0;
    *uio_oe = 8'b0;
+   */
+
+
 
 
 // Set up the Tiny Tapeout lab environment.
@@ -175,5 +269,9 @@ module m5_user_module_name (
    // Your (System)Verilog logic, if any. (Module interface above.)
 
 
+   // Connect Tiny Tapeout outputs
+   m5_if(m5_vga, ['// (uo_out is driven by tt_vga().)'], ['assign uo_out = 8'b0;'])
+   assign uio_out = 8'b0;
+   assign uio_oe = 8'b0;
 
 endmodule
